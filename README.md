@@ -1,13 +1,5 @@
 # Active Directory Home Lab (Windows Server 2019)
 
-## Overview
-
-This project demonstrates the deployment of a Windows Active Directory lab environment using Windows Server 2019 as a Domain Controller and Windows 10 client machines joined to the domain.
-
-The goal of this lab is to simulate a small enterprise network where a Domain Controller centrally manages users, computers, network services, and security policies
-
-![alt text](<images/Screenshot 2026-03-01 at 15.15.24.png>)
-
 ## Lab Architecture
 
                 Internet
@@ -30,6 +22,14 @@ The goal of this lab is to simulate a small enterprise network where a Domain Co
       │   CLIENT1     │   CLIENT2     │   CLIENT3     │
       │  Windows 10   │  Windows 10   │  Windows 10   │
       └───────────────┴───────────────┴───────────────┘
+
+## Overview
+
+This project demonstrates the deployment of a Windows Active Directory lab environment using Windows Server 2019 as a Domain Controller and Windows 10 client machines joined to the domain.
+
+The goal of this lab is to simulate a small enterprise network where a Domain Controller centrally manages users, computers, network services, and security policies
+
+![alt text](<images/Screenshot 2026-03-01 at 15.15.24.png>)
 
 ## Technologies Used
 
@@ -138,3 +138,11 @@ Password complexity requirements were enforced across the domain.
 ![Control Panel access restriction Confirmation](images/VirtualBox_CLIENT2_01_03_2026_14_30_47.png)
 
 ![Drive Mapping Configuration](images/VirtualBox_DC_01_03_2026_08_27_00.png)
+
+## Future Improvements
+
+Potential improvements for this lab include:
+
+- File server with NTFS permissions
+- Security group role-based access control (RBAC)
+- Windows Event Forwarding
