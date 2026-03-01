@@ -112,8 +112,29 @@ The client received an IP address from the DHCP server.
 
 Command used:
 
-```
+```cmd
 ipconfig
 ```
 
 ![CLIENT VERIFICATION](<images/Screenshot 2026-03-01 at 16.48.45.png>)
+
+## Group Policy Configuration
+
+The following security controls were implemented:
+
+- Password policy enforcement
+- Account lockout policy
+- USB storage restriction
+- Control Panel access restriction
+- Drive Mapping
+- Desktop Wallpaper
+
+![Group Policy](images/VirtualBox_DC_01_03_2026_11_06_36.png)
+
+Password complexity requirements were enforced across the domain.
+
+![Password Policy Configuration](images/VirtualBox_DC_01_03_2026_08_18_11.png)
+
+![Control Panel access restriction Confirmation](images/VirtualBox_CLIENT2_01_03_2026_14_30_47.png)
+
+![Drive Mapping Configuration](images/VirtualBox_DC_01_03_2026_08_27_00.png)
