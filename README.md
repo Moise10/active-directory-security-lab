@@ -116,6 +116,8 @@ Command used:
 ipconfig
 ```
 
+## CLIENT VERIFICATION
+
 ![CLIENT VERIFICATION](<images/Screenshot 2026-03-01 at 16.48.45.png>)
 
 ## Group Policy Configuration
@@ -133,9 +135,15 @@ The following security controls were implemented:
 
 Password complexity requirements were enforced across the domain.
 
-![Password Policy Configuration](images/VirtualBox_DC_01_03_2026_08_18_11.png)
+## Password Policy Settings
+
+![Password Policy Settings](images/VirtualBox_DC_01_03_2026_08_18_11.png)
+
+## Control Panel access restriction Confirmation
 
 ![Control Panel access restriction Confirmation](images/VirtualBox_CLIENT2_01_03_2026_14_30_47.png)
+
+## Drive Mapping Configuration
 
 ![Drive Mapping Configuration](images/VirtualBox_DC_01_03_2026_08_27_00.png)
 
