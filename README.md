@@ -1,5 +1,9 @@
 # Active Directory Home Lab (Windows Server 2019)
 
+## Scenario:
+
+"A mid-sized enterprise is migrating from a purely on-premises Active Directory environment to a hybrid Azure infrastructure. As the administrator, I was tasked with designing the on-premises AD environment, connecting it to Microsoft Entra ID, and layering a security monitoring solution using Microsoft Sentinel to detect and respond to identity-based threats across both environments."
+
 ## Lab Architecture
 
                 Internet
