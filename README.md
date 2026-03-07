@@ -109,7 +109,7 @@ The on-premises domain `projects-demo.me` was registered in the Entra ID tenant.
 Entra Connect was installed on the Windows Server 2019 DC and configured to sync the entire `projects-demo.me` AD forest to Entra ID. The wizard completed successfully with `mS-DS-ConsistencyGuid` set as the source anchor attribute.
 
 **Entra Connect Sync — Configuration complete on the DC (`projects-demo.me` forest)**
-![Entra Connect Complete](screenshots/phase2/phase2-entra-connect-complete.png)
+![Entra Connect Complete](images/entra-connect-complete.png)
 
 **3. Users and Groups Synced to Entra ID**
 Following the initial sync, all 1,003 AD user accounts and 18 security groups appeared in Entra ID. Every user shows `On-premises synced = Yes` and the directory overview confirms Entra Connect status as **Enabled** with the last sync under 1 hour ago.
