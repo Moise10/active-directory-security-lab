@@ -81,3 +81,56 @@ Three Windows 10 clients (`CLIENT1`, `CLIENT2`, `COMPUTER1-EU`, `COMPUTER2-EU`) 
 - PowerShell scripting for automated bulk user and group provisioning
 - Group Policy creation, linking, scope filtering, and live enforcement verification
 - Windows 10 domain join and user authentication testing
+
+---
+
+## Phase 2 — Azure Hybrid Identity ✅
+
+> **Goal:** Extend the on-premises `projects-demo.me` domain into Azure by configuring Microsoft Entra Connect Sync, registering the custom domain, syncing all AD users and groups to Entra ID, and assigning Azure RBAC roles to cloud users.
+
+### Environment
+
+| Setting           | Value                                               |
+| ----------------- | --------------------------------------------------- |
+| **Tenant**        | `labprojectsoutlab.onmicrosoft.com`                 |
+| **Custom Domain** | `projects-demo.me` (registered in Entra ID)         |
+| **Sync Tool**     | Microsoft Entra Connect Sync                        |
+| **Sync Scope**    | All users and groups from `projects-demo.me` forest |
+| **License**       | Microsoft Entra ID Free                             |
+
+---
+
+### What Was Built
+
+**1. Custom Domain Registration**
+The on-premises domain `projects-demo.me` was registered in the Entra ID tenant. The domain shows as Unverified in a lab context (no public DNS control), but is correctly registered and used as the UPN suffix for all synced accounts.
+
+**2. Microsoft Entra Connect Sync**
+Entra Connect was installed on the Windows Server 2019 DC and configured to sync the entire `projects-demo.me` AD forest to Entra ID. The wizard completed successfully with `mS-DS-ConsistencyGuid` set as the source anchor attribute.
+
+**Entra Connect Sync — Configuration complete on the DC (`projects-demo.me` forest)**
+![Entra Connect Complete](screenshots/phase2/phase2-entra-connect-complete.png)
+
+**3. Users and Groups Synced to Entra ID**
+Following the initial sync, all 1,003 AD user accounts and 18 security groups appeared in Entra ID. Every user shows `On-premises synced = Yes` and the directory overview confirms Entra Connect status as **Enabled** with the last sync under 1 hour ago.
+
+**Entra ID Directory Overview — 1,003 users, 18 groups, Entra Connect Enabled**
+![Directory Overview](images/directory-overview.png)
+
+**All 18 security groups synced from Windows Server AD — source column confirms on-premises origin**
+![Groups Synced](images/groups-synced.png)
+
+**4. Azure RBAC — Role Assignment**
+A cloud user (`a-moise@labprojectsoutlook.onmicrosoft.com`) was created and assigned the **Global Reader** built-in role at the Organization scope, demonstrating least-privilege RBAC in the hybrid environment.
+
+**Cloud user with Global Reader role assigned at Organization scope**
+![RBAC User Profile](images/rbac-user-profile.png)
+
+---
+
+### Key Observations
+
+- The sync brought across not just users but all AD security groups with full membership intact — the `Source` column on every group shows `Windows Server AD`
+- Entra Connect uses `mS-DS-ConsistencyGuid` as the source anchor, which is the recommended approach for new installations as it avoids UPN-based anchor conflicts
+- The free Entra ID tier supports Entra Connect Sync, password hash sync, and basic RBAC — sufficient to establish hybrid identity without a P2 license
+- Conditional Access and PIM (Privileged Identity Management) require Entra ID P2 — not configured in this phase
