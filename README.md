@@ -1,160 +1,83 @@
-# Active Directory Home Lab (Windows Server 2019)
+# 🏗️ Phase 1 — On-Premises Active Directory
 
-## Scenario:
+> **Platform:** VirtualBox | Windows Server 2019 (DC) + Windows 10 clients
+> **Domain:** `projects-demo.me` | **Network:** `172.16.0.0/24`
 
-"A mid-sized enterprise is migrating from a purely on-premises Active Directory environment to a hybrid Azure infrastructure. As the administrator, I was tasked with designing the on-premises AD environment, connecting it to Microsoft Entra ID, and layering a security monitoring solution using Microsoft Sentinel to detect and respond to identity-based threats across both environments."
-
-## Lab Architecture
-
-                Internet
-                    │
-               NAT / RRAS
-                    │
-       ┌─────────────────────────┐
-       │ Domain Controller (DC)  │
-       │ Windows Server 2019     │
-       │                         │
-       │ - Active Directory DS   │
-       │ - DNS                   │
-       │ - DHCP                  │
-       │ - Group Policy          │
-       └───────────┬─────────────┘
-                   │
-          Internal Virtual Network
-                   │
-      ┌───────────────┬───────────────┬───────────────┐
-      │   CLIENT1     │   CLIENT2     │   CLIENT3     │
-      │  Windows 10   │  Windows 10   │  Windows 10   │
-      └───────────────┴───────────────┴───────────────┘
+---
 
 ## Overview
 
-This project demonstrates the deployment of a Windows Active Directory lab environment using Windows Server 2019 as a Domain Controller and Windows 10 client machines joined to the domain.
+Phase 1 establishes the on-premises foundation of the hybrid lab — a fully functional Windows Server 2019 Domain Controller running Active Directory Domain Services, DHCP, DNS, and NAT/RRAS. Three Windows 10 clients are domain-joined and managed through Group Policy. All subsequent phases in this project build on top of this infrastructure.
 
-The goal of this lab is to simulate a small enterprise network where a Domain Controller centrally manages users, computers, network services, and security policies
+---
 
-![alt text](<images/Screenshot 2026-03-01 at 15.15.24.png>)
+## What Was Built
 
-## Technologies Used
+### Domain Controller Setup
 
-- Windows Server 2019
-- Windows 10 Pro
-- Active Directory Domain Services (AD DS)
-- DHCP Server
-- Routing and Remote Access (RRAS)
-- Group Policy Management
-- PowerShell
-- VirtualBox
+A Windows Server 2019 VM was promoted to a Domain Controller for the domain `projects-demo.me`. The AD DS role was installed via Server Manager alongside DNS, DHCP, and the Remote Access (RRAS) role to provide NAT-based internet access for internal clients. The DC hosts the `172.16.0.0/24` DHCP scope, serving IP addresses to all domain-joined machines.
 
-## Domain Controller Setup
+### Organizational Unit Structure
 
-The server was configured as a Domain Controller by installing Active Directory Domain Services.
+The directory was structured to reflect a multinational organization with three geographic regions — **USA**, **Europe**, and **Asia**. Each region contains sub-OUs for `Computers`, `Users`, and `Servers`. Custom admin and user container OUs (`_ADMINS`, `_USERS`) were also created at the domain root for centralized account management. Security groups per department (IT, HR, Accounting, Sales, Management) were created within each regional OU.
 
-### AD DS Installation
+### Bulk User Provisioning via PowerShell
 
-![AD DS Installation](images/VirtualBox_DC_28_02_2026_18_20_51.png)
+Rather than manually creating accounts, a PowerShell script (`1_CREATE_USERS.ps1`) was written to bulk-provision users from a `names.txt` file. The script reads first/last name pairs, derives a `firstname.lastname` username format, creates the AD account with a standard password, and places each user in the `_USERS` OU. The script successfully provisioned **658 user accounts** in a single execution.
 
-### DHCP Configuration
+### Group Policy Objects (GPOs)
 
-The Domain Controller was configured to act as a DHCP server that assigns IP addresses automatically to domain clients.
+Seven GPOs were created and linked at the appropriate OU or domain level:
 
-### DHCP Scope
+| GPO                    | Scope           | Purpose                            |
+| ---------------------- | --------------- | ---------------------------------- |
+| Password Policy        | Domain          | Min 8 chars, max 180-day age       |
+| Account Lockout Policy | Domain          | 5 failed attempts → 10 min lockout |
+| Disable USB Devices    | USA > Computers | Block all removable storage        |
+| Desktop Wallpaper      | USA > Users     | Enforce corporate wallpaper        |
+| Drive Mapping          | USA > Users     | Map network drives (D:, E:)        |
+| Restrict Control Panel | USA > Users     | Block Control Panel & PC Settings  |
+| Default Domain Policy  | Domain          | Baseline domain settings           |
 
-    Network: 172.16.0.0/24
-    Gateway: 172.16.0.1
-    IP Range: 172.16.0.100 – 172.16.0.200
+### Client Domain Join & GPO Verification
 
-### DHCP Scope
+Three Windows 10 clients (`CLIENT1`, `CLIENT2`, `COMPUTER1-EU`, `COMPUTER2-EU`) were joined to the `projects-demo.me` domain. After running `gpupdate /force`, GPOs were confirmed applied — a domain user (account `a-moise`) authenticated successfully with `whoami` returning `projects-demo\a-moise`, and attempts to access the Control Panel triggered the GPO restriction message: _"This operation has been cancelled due to restrictions in effect on this computer."_
 
-![DHCP Console](images/VirtualBox_DC_28_02_2026_22_02_57.png)
+---
 
-## Active Directory Organizational Structure
+## Key Screenshots
 
-To simulate an enterprise structure, Organizational Units (OUs) were created by geographic region.
+**Client receives DHCP lease from DC and has internet access via NAT/RRAS**
+![Network Connectivity](phase1-network-connectivity.png)
 
-![OU Structure](images/VirtualBox_DC_01_03_2026_07_08_56.png)
+**CLIENT1 successfully joined to the projects-demo.me domain**
+![Domain Join](phase1-domain-join.png)
 
-### PowerShell User Automation
+**OU structure in ADUC — USA, Europe, Asia with dept security groups**
+![OU Structure](phase1-ou-structure.png)
 
-A PowerShell script was used to automatically create multiple users in Active Directory.
+**All 7 GPOs created and linked across the domain/OU hierarchy**
+![GPO Overview](phase1-gpo-overview.png)
 
-```powershell
-$PASSWORD_FOR_USERS   = "Password1"
-$USER_FIRST_LAST_LIST = Get-Content .\names.txt
-# ------------------------------------------------------ #
+**GPO enforcement confirmed — Control Panel restriction blocking domain user**
+![GPO Restriction Proof](phase1-gpo-restriction-proof.png)
 
-$password = ConvertTo-SecureString $PASSWORD_FOR_USERS -AsPlainText -Force
-New-ADOrganizationalUnit -Name _USERS -ProtectedFromAccidentalDeletion $false
+**PowerShell bulk user creation script running — 658 accounts provisioned**
+![Bulk User Creation](phase1-bulk-user-creation.png)
 
-foreach ($n in $USER_FIRST_LAST_LIST) {
-    $first = $n.Split(" ")[0].ToLower()
-    $last = $n.Split(" ")[1].ToLower()
-    $username = "$($first.Substring(0,1))$($last)".ToLower()
-    Write-Host "Creating user: $($username)" -BackgroundColor Black -ForegroundColor Cyan
+---
 
-    New-AdUser -AccountPassword $password `
-               -GivenName $first `
-               -Surname $last `
-               -DisplayName $username `
-               -Name $username `
-               -EmployeeID $username `
-               -PasswordNeverExpires $true `
-               -Path "ou=_USERS,$(([ADSI]``"").distinguishedName)" `
-               -Enabled $true
-}
-```
+## Skills Demonstrated
 
-![Script Execution](images/VirtualBox_DC_28_02_2026_22_48_18.png)
+![Active Directory](https://img.shields.io/badge/Active_Directory-0078D4?style=flat&logo=microsoft&logoColor=white)
+![Windows Server](https://img.shields.io/badge/Windows_Server_2019-0078D4?style=flat&logo=windows&logoColor=white)
+![PowerShell](https://img.shields.io/badge/PowerShell-5391FE?style=flat&logo=powershell&logoColor=white)
+![Group Policy](https://img.shields.io/badge/Group_Policy-grey?style=flat&logo=microsoft&logoColor=white)
 
-## Domain Join and CLIENT Network Verification
-
-Client machines were successfully joined to the domain.
-
-![Domain Join COnfirmation](images/VirtualBox_CLIENT1_01_03_2026_05_41_57.png)
-
-The client received an IP address from the DHCP server.
-
-Command used:
-
-```cmd
-ipconfig
-```
-
-## CLIENT VERIFICATION
-
-![CLIENT VERIFICATION](<images/Screenshot 2026-03-01 at 16.48.45.png>)
-
-## Group Policy Configuration
-
-The following security controls were implemented:
-
-- Password policy enforcement
-- Account lockout policy
-- USB storage restriction
-- Control Panel access restriction
-- Drive Mapping
-- Desktop Wallpaper
-
-![Group Policy](images/VirtualBox_DC_01_03_2026_11_06_36.png)
-
-Password complexity requirements were enforced across the domain.
-
-## Password Policy Settings
-
-![Password Policy Settings](images/VirtualBox_DC_01_03_2026_08_18_11.png)
-
-## Control Panel access restriction Confirmation
-
-![Control Panel access restriction Confirmation](images/VirtualBox_CLIENT2_01_03_2026_14_30_47.png)
-
-## Drive Mapping Configuration
-
-![Drive Mapping Configuration](images/VirtualBox_DC_01_03_2026_08_27_00.png)
-
-## Future Improvements
-
-Potential improvements for this lab include:
-
-- File server with NTFS permissions
-- Security group role-based access control (RBAC)
-- Windows Event Forwarding
+- Active Directory Domain Services (AD DS) installation and DC promotion
+- DHCP scope configuration and lease verification
+- NAT / RRAS configuration for internal network internet access
+- Organizational Unit design by geographic region and department
+- PowerShell scripting for automated bulk user and group provisioning
+- Group Policy creation, linking, scope filtering, and live enforcement verification
+- Windows 10 domain join and user authentication testing
