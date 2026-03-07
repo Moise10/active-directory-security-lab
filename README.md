@@ -48,22 +48,22 @@ Three Windows 10 clients (`CLIENT1`, `CLIENT2`, `COMPUTER1-EU`, `COMPUTER2-EU`) 
 ## Key Screenshots
 
 **Client receives DHCP lease from DC and has internet access via NAT/RRAS**
-![Network Connectivity](phase1-network-connectivity.png)
+![Network Connectivity](images/phase1-network-connectivity.png)
 
 **CLIENT1 successfully joined to the projects-demo.me domain**
-![Domain Join](phase1-domain-join.png)
+![Domain Join](images/phase1-domain-join.png)
 
 **OU structure in ADUC — USA, Europe, Asia with dept security groups**
-![OU Structure](phase1-ou-structure.png)
+![OU Structure](images/phase1-ou-structure.png)
 
 **All 7 GPOs created and linked across the domain/OU hierarchy**
-![GPO Overview](phase1-gpo-overview.png)
+![GPO Overview](images/phase1-gpo-overview.png)
 
 **GPO enforcement confirmed — Control Panel restriction blocking domain user**
-![GPO Restriction Proof](phase1-gpo-restriction-proof.png)
+![GPO Restriction Proof](images/phase1-gpo-restriction-proof.png)
 
 **PowerShell bulk user creation script running — 658 accounts provisioned**
-![Bulk User Creation](phase1-bulk-user-creation.png)
+![Bulk User Creation](images/phase1-bulk-user-creation.png)
 
 ---
 
