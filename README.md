@@ -188,59 +188,6 @@ Flow logs configured at the VNet level targeting both `Subnet1` and `subnet2` in
 
 ---
 
----
-
-## Phase 3 — Network Security ✅
-
-> **Goal:** Deploy Network Security Groups (NSGs) on both VMs, restrict RDP and SSH access to trusted IPs only, enable VNet Flow Logs to capture all ingress/egress traffic, and route logs to the central Log Analytics workspace.
-
-### Environment
-
-| Setting              | Value                                                          |
-| -------------------- | -------------------------------------------------------------- |
-| **Resource Group**   | `Active_Directory_Lab`                                         |
-| **VNet**             | `AD_Lab_Vnet`                                                  |
-| **Subnets**          | `Subnet1`, `subnet2`                                           |
-| **NSGs**             | `ad-project-vm-nsg` (Windows DC), `AD-linux-vm-nsg` (Linux VM) |
-| **Flow Log Storage** | `labstorage23`                                                 |
-| **Log Destination**  | `AD-Lab-LogAnlayticsWorkspace` (East US)                       |
-
----
-
-### What Was Built
-
-**1. NSG Rules — Windows DC (`ad-project-vm-nsg`)**
-
-RDP access (port 3389) restricted to a single trusted public IP (`213.156.101.217`). All other inbound traffic is denied by the default `DenyAllInbound` rule at priority 65500. VNet-internal and Azure Load Balancer traffic are permitted via standard default rules.
-
-| Priority | Rule                   | Port | Source            | Action   |
-| -------- | ---------------------- | ---- | ----------------- | -------- |
-| 300      | RDP                    | 3389 | `213.156.101.217` | ✅ Allow |
-| 310      | ALLOW_ANY_FROM_MY_IP   | Any  | `213.156.101.217` | ✅ Allow |
-| 65000    | AllowVnetInBound       | Any  | VirtualNetwork    | ✅ Allow |
-| 65001    | AllowAzureLoadBalancer | Any  | AzureLoadBalancer | ✅ Allow |
-| 65500    | DenyAllInbound         | Any  | Any               | ❌ Deny  |
-
-**NSG inbound rules for the Windows DC — RDP locked to trusted IP only**
-![NSG Windows Rules](screenshots/phase3/phase3-nsg-windows-rules.png)
-
----
-
-**2. VNet Flow Logs**
-
-Flow logs configured at the VNet level targeting both `Subnet1` and `subnet2` in `Active_Directory_Lab`, stored in `labstorage23` (East US). This captures all accepted and denied traffic flows across the lab network for later KQL analysis.
-
----
-
-**3. Log Analytics Workspace**
-
-`AD-Lab-LogAnlayticsWorkspace` created in `active_directory_lab` resource group (East US, Pay-as-you-go). Status: **Active**, Operational issues: **OK**. This workspace serves as the central log sink for the entire lab — receiving NSG flow logs, Key Vault audit logs, and later Microsoft Sentinel data.
-
-**Log Analytics Workspace — Active, operational, ready to receive data**
-![Log Analytics Workspace](screenshots/phase3/phase3-log-analytics-workspace.png)
-
----
-
 ## Phase 4 — Key Vault & Secrets Management ✅
 
 > **Goal:** Deploy Azure Key Vault in the lab resource group, restrict network access to the lab VNet only via a private endpoint, and route all audit logs to the central Log Analytics workspace.
