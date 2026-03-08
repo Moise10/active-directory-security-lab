@@ -188,6 +188,59 @@ Flow logs configured at the VNet level targeting both `Subnet1` and `subnet2` in
 
 ---
 
+---
+
+## Phase 3 — Network Security ✅
+
+> **Goal:** Deploy Network Security Groups (NSGs) on both VMs, restrict RDP and SSH access to trusted IPs only, enable VNet Flow Logs to capture all ingress/egress traffic, and route logs to the central Log Analytics workspace.
+
+### Environment
+
+| Setting              | Value                                                          |
+| -------------------- | -------------------------------------------------------------- |
+| **Resource Group**   | `Active_Directory_Lab`                                         |
+| **VNet**             | `AD_Lab_Vnet`                                                  |
+| **Subnets**          | `Subnet1`, `subnet2`                                           |
+| **NSGs**             | `ad-project-vm-nsg` (Windows DC), `AD-linux-vm-nsg` (Linux VM) |
+| **Flow Log Storage** | `labstorage23`                                                 |
+| **Log Destination**  | `AD-Lab-LogAnlayticsWorkspace` (East US)                       |
+
+---
+
+### What Was Built
+
+**1. NSG Rules — Windows DC (`ad-project-vm-nsg`)**
+
+RDP access (port 3389) restricted to a single trusted public IP (`213.156.101.217`). All other inbound traffic is denied by the default `DenyAllInbound` rule at priority 65500. VNet-internal and Azure Load Balancer traffic are permitted via standard default rules.
+
+| Priority | Rule                   | Port | Source            | Action   |
+| -------- | ---------------------- | ---- | ----------------- | -------- |
+| 300      | RDP                    | 3389 | `213.156.101.217` | ✅ Allow |
+| 310      | ALLOW_ANY_FROM_MY_IP   | Any  | `213.156.101.217` | ✅ Allow |
+| 65000    | AllowVnetInBound       | Any  | VirtualNetwork    | ✅ Allow |
+| 65001    | AllowAzureLoadBalancer | Any  | AzureLoadBalancer | ✅ Allow |
+| 65500    | DenyAllInbound         | Any  | Any               | ❌ Deny  |
+
+**NSG inbound rules for the Windows DC — RDP locked to trusted IP only**
+![NSG Windows Rules](screenshots/phase3/phase3-nsg-windows-rules.png)
+
+---
+
+**2. VNet Flow Logs**
+
+Flow logs configured at the VNet level targeting both `Subnet1` and `subnet2` in `Active_Directory_Lab`, stored in `labstorage23` (East US). This captures all accepted and denied traffic flows across the lab network for later KQL analysis.
+
+---
+
+**3. Log Analytics Workspace**
+
+`AD-Lab-LogAnlayticsWorkspace` created in `active_directory_lab` resource group (East US, Pay-as-you-go). Status: **Active**, Operational issues: **OK**. This workspace serves as the central log sink for the entire lab — receiving NSG flow logs, Key Vault audit logs, and later Microsoft Sentinel data.
+
+**Log Analytics Workspace — Active, operational, ready to receive data**
+![Log Analytics Workspace](screenshots/phase3/phase3-log-analytics-workspace.png)
+
+---
+
 ## Phase 4 — Key Vault & Secrets Management ✅
 
 > **Goal:** Deploy Azure Key Vault in the lab resource group, restrict network access to the lab VNet only via a private endpoint, and route all audit logs to the central Log Analytics workspace.
@@ -236,21 +289,9 @@ Diagnostic setting `keyVault-diagnostics` configured to send `allLogs` (includin
 
 ---
 
-**4. VM Connectivity Verified**
-
-End-to-end connectivity from the admin workstation to the Windows DC public IP (`213.156.101.217`) confirmed via ICMP ping — 17 packets transmitted, 17 received, **0% packet loss**. Round-trip avg: 74ms. This validates that NSG rules are correctly permitting traffic from the trusted source IP and the VM is reachable for RDP and log agent communication.
-
-**Ping from admin workstation to VM public IP — 0% packet loss, connectivity confirmed**
-![VM Ping Connectivity](images/vm-ping-connectivity.png)
-
----
-
-**5. Windows Defender Firewall — Domain Profile Disabled**
+**4. Windows Defender Firewall — Domain Profile Disabled**
 
 Windows Defender Firewall Domain Profile disabled on the domain-joined VM to allow the Azure Monitor Agent (AMA) to communicate with the Log Analytics workspace without local firewall interference. In production this would be handled via a targeted inbound rule using the `AzureMonitor` service tag rather than disabling the profile entirely.
-
-**Domain Profile firewall state Off — intentional for lab log agent communication**
-![Firewall Domain Off](images/firewall-domain-off.png)
 
 ---
 
@@ -264,18 +305,25 @@ Windows Defender Firewall Domain Profile disabled on the domain-joined VM to all
 
 ---
 
+---
+
 ## Phase 5 — Monitoring & Log Collection ✅
 
-> **Goal:** Connect all lab data sources to Microsoft Sentinel via the central Log Analytics workspace. Configure Entra ID diagnostic settings to stream identity and sign-in logs into the workspace, and connect Microsoft Defender XDR as the primary SIEM workspace.
+> **Goal:** Connect all lab data sources to Microsoft Sentinel. Install the Azure Monitor Agent (AMA) on the Windows DC, configure Data Collection Rules (DCR) for Windows Security Events and DNS logs, onboard the on-premises DC to Azure via Azure Arc, and build a GeoIP watchlist for threat enrichment.
 
 ### Environment
 
-| Setting                         | Value                                           |
-| ------------------------------- | ----------------------------------------------- |
-| **SIEM**                        | Microsoft Sentinel (via Microsoft Defender XDR) |
-| **Log Analytics Workspace**     | `AD-Lab-LogAnlayticsWorkspace` (East US)        |
-| **Entra ID Diagnostic Setting** | `Entra-diagnostic-settings`                     |
-| **Log Destination**             | `AD-Lab-LogAnlayticsWorkspace`                  |
+| Setting                         | Value                                                           |
+| ------------------------------- | --------------------------------------------------------------- |
+| **SIEM**                        | Microsoft Sentinel (via Microsoft Defender XDR)                 |
+| **Log Analytics Workspace**     | `AD-Lab-LogAnlayticsWorkspace` (East US)                        |
+| **Sentinel Workspace**          | Connected — Primary                                             |
+| **Entra ID Diagnostic Setting** | `Entra-diagnostic-settings` → all identity log categories       |
+| **Windows DC**                  | `ad-project-vm` — Azure VM                                      |
+| **On-Prem DC**                  | `DC` (FQDN: `DC.projects-demo.me`) — onboarded via Azure Arc    |
+| **Agents Installed**            | `AzureMonitorWindowsAgent` v1.41.0, `MicrosoftDnsAgent` v1.4.10 |
+| **Data Connectors**             | Windows Security Events via AMA, Windows DNS Events via AMA     |
+| **Watchlist**                   | `geoip` — 54,803 rows from `geoip-summarized.csv`               |
 
 ---
 
@@ -283,45 +331,98 @@ Windows Defender Firewall Domain Profile disabled on the domain-joined VM to all
 
 **1. Microsoft Sentinel Workspace Connected**
 
-`AD-Lab-LogAnlayticsWorkspace` connected to Microsoft Defender XDR as the primary Sentinel workspace. Status shows **Connected** — all three setup steps (Workspace, Set primary, Review and finish) completed successfully. Sentinel is now the central SIEM for the lab, able to correlate signals across Entra ID, Key Vault, NSG flow logs, and endpoint telemetry.
+`AD-Lab-LogAnlayticsWorkspace` connected to Microsoft Defender XDR as the primary Sentinel workspace. All three setup steps completed — Workspace, Set primary, Review and finish — status: **Connected**. Sentinel is now the central SIEM for the lab, correlating signals across Entra ID, Key Vault, NSG flow logs, and endpoint telemetry.
 
 **Sentinel workspace successfully connected — AD-Lab-LogAnlayticsWorkspace, status: Connected**
 ![Sentinel Workspace Connected](images/sentinel-workspace-connected.png)
 
 ---
 
-**2. Entra ID Diagnostic Settings — Full Log Pipeline**
+**2. Entra ID Diagnostic Settings — Full Identity Log Pipeline**
 
-Diagnostic setting `Entra-diagnostic-settings` configured on the Default Directory (Entra ID tenant) to stream the following log categories to `AD-Lab-LogAnlayticsWorkspace`:
-
-| Log Category                 | Purpose                                                               |
-| ---------------------------- | --------------------------------------------------------------------- |
-| `AuditLogs`                  | Directory changes — user creation, group membership, role assignments |
-| `SignInLogs`                 | Interactive user sign-ins                                             |
-| `ServicePrincipalSignInLogs` | App and service principal authentication                              |
-| `ManagedIdentitySignInLogs`  | Managed identity authentication events                                |
-| `ProvisioningLogs`           | Entra Connect Sync provisioning activity                              |
-| `RiskyUsers`                 | Users flagged as at-risk by Identity Protection                       |
-| `UserRiskEvents`             | Individual risk detections per user                                   |
-| `NetworkAccessTrafficLogs`   | Network access events                                                 |
-| `RiskyServicePrincipals`     | At-risk service principals                                            |
-| `ServicePrincipalRiskEvents` | Risk detections for service principals                                |
-| `ADFSSignInLogs`             | ADFS federation sign-in events                                        |
-| `MicrosoftGraphActivityLogs` | Microsoft Graph API call activity                                     |
-| `EnrichedOffice365AuditLogs` | Office 365 audit events                                               |
-
-All categories route to `AD-Lab-LogAnlayticsWorkspace (eastus)` under Azure subscription 1. This makes the full Entra ID identity plane visible in Sentinel for threat detection and KQL hunting.
+Diagnostic setting `Entra-diagnostic-settings` configured on the Default Directory to stream 13+ log categories to `AD-Lab-LogAnlayticsWorkspace`, including `AuditLogs`, `SignInLogs`, `RiskyUsers`, `ServicePrincipalSignInLogs`, `MicrosoftGraphActivityLogs`, and more. This makes the full Entra ID identity plane queryable in Sentinel via KQL.
 
 **Entra ID diagnostic settings — 13+ log categories streaming to AD-Lab-LogAnlayticsWorkspace**
 ![Entra Diagnostic Settings](images/entra-diagnostic-settings.png)
 
 ---
 
+**3. Windows Security Events via AMA — Both Machines Connected**
+
+DCR `DCR-Windows` extended to cover both the Azure VM (`ad-project-vm`) and the on-premises DC (`DC`, `microsoft.hybridcompute`) via Azure Arc — both checked in the Resources step. Connector status: **Connected**, last log received **3/8/2026, 7:09:18 AM**, **1,400 SecurityEvents** already ingested. This confirms the full hybrid log pipeline is live — both the cloud VM and the on-prem DC are forwarding Windows Security Events to Sentinel.
+
+**DCR-Windows covering both ad-project-vm and DC (Arc) — 1.4K SecurityEvents flowing**
+![AMA Connector Both Machines](images/dcr-both-machines-connected.png)
+
+---
+
+**4. Both Agents Confirmed on VM**
+
+`ad-project-vm` extensions view confirms both `AzureMonitorWindowsAgent` (v1.41.0, Enabled) and `MicrosoftDnsAgent` (v1.4.10, Provisioning succeeded) installed side-by-side. The VM is now forwarding both Windows Security Events and DNS logs to Sentinel.
+
+**ad-project-vm — AzureMonitorWindowsAgent + MicrosoftDnsAgent both provisioned**
+![VM Both Agents](images/vm-both-agents.png)
+
+---
+
+**5. Azure Arc — On-Premises DC Onboarded**
+
+The on-premises Windows Server 2019 DC (`DC.projects-demo.me`, running in VirtualBox) onboarded to Azure via Azure Arc. The Arc agent installation script was executed via PowerShell on the DC — agent downloaded, installed, and machine registered at 100% completion.
+
+**Azure Arc agent installation on DC — 100% complete, machine registered in Azure**
+![Arc Agent Install PowerShell](images/arc-agent-install-powershell.png)
+
+The DC now appears in Azure Arc Machines as **Connected**, FQDN `DC.projects-demo.me`, OS: Windows Server 2019 Standard Evaluation, hosted in VirtualBox. This brings the on-premises domain controller under Azure management and makes it eligible for AMA-based log collection.
+
+**Azure Arc Machines — DC Connected, FQDN DC.projects-demo.me, Windows Server 2019**
+![Arc Machine Connected](images/arc-machine-connected.png)
+
+---
+
+**6. GeoIP Watchlist — 54K Rows Loaded**
+
+Watchlist `geoip` created from `geoip-summarized.csv` — **54,803 rows** loaded, SearchKey: `network`, Status: **Succeeded**. This watchlist maps IP network ranges to city, country, latitude, and longitude — enabling geographic enrichment of security events in KQL queries.
+
+**GeoIP watchlist — 54K rows, Succeeded, searchable by network CIDR**
+![GeoIP Watchlist](images/kql-watchlist-query.png)
+
+---
+
+**7. KQL Validation — Logs Flowing**
+
+Two KQL queries confirm the log pipeline is working end-to-end:
+
+**EventID 4625 (Failed Logon) — 61 events** from `ad-project-vm`, accounts including `PC123`, `LABADMIN`, `LAB`, `LABUSER`, `WEB`. Timeline shows consistent activity across the collection window — the SecurityEvent table is live and queryable.
+
+```kql
+SecurityEvent
+| where EventID == "4625"
+```
+
+**SecurityEvent EventID 4625 — 61 failed logon events, multiple accounts, timeline active**
+![KQL 4625 Results](images/kql-4625-results.png)
+
+**GeoIP watchlist query — 54,803 items** returned with full geographic enrichment (city, country, lat/lon, network CIDR). Confirms the watchlist is queryable via `_GetWatchlist("geoip")` for use in threat hunting rules.
+
+```kql
+SecurityEvent
+| where EventID == "4625"
+| project Computer
+| distinct Computer
+_GetWatchlist("geoip")
+```
+
+**\_GetWatchlist("geoip") — 54,803 rows returned, geographic data visible**
+![KQL Watchlist Query](images/geoip_query.png)
+
+---
+
 ### Key Observations
 
-- Connecting Entra ID sign-in and audit logs to the same workspace as NSG flow logs and Key Vault audit logs enables **cross-source correlation** — e.g. a suspicious sign-in followed by a Key Vault access attempt can be correlated in a single KQL query
-- `RiskyUsers` and `UserRiskEvents` tables require Entra ID P2 in production for Identity Protection to populate them — in this lab they are configured but may remain empty without a P2 license
-- `MicrosoftGraphActivityLogs` is valuable for detecting OAuth abuse and app consent grant attacks — a common cloud identity attack vector
-- The Sentinel workspace connection via Microsoft Defender XDR (rather than the standalone Sentinel portal) reflects the unified SOC approach Microsoft recommends for environments using both MDE and Sentinel
+- The combination of AMA + DCR (instead of the legacy Log Analytics agent) reflects Microsoft's current recommended architecture — the legacy agent is deprecated as of Aug 2026
+- Azure Arc extending visibility to the on-premises DC is a significant step — it bridges the hybrid environment and makes the VirtualBox-hosted DC a first-class citizen in Sentinel
+- The `MicrosoftDnsAgent` enables DNS-based threat detection that would otherwise be invisible at the network layer — DGA detection, Tor relay resolution, and C2 beacon patterns all rely on DNS telemetry
+- The GeoIP watchlist enables geographic enrichment without requiring a paid threat intelligence feed — `_GetWatchlist("geoip")` can be joined to any IP field in KQL queries
+- EventID 4625 (failed logon) appearing 61 times across multiple accounts is realistic AD noise — in Phase 6 this becomes the basis for brute force detection rules
 
 ---
